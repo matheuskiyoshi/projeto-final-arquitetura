@@ -1,7 +1,4 @@
-version: "3.8"
-
 services:
-  # 1. Banco de dados PostgreSQL
   db:
     image: postgres:15-alpine
     container_name: movieflix-db
@@ -12,9 +9,9 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./sql/create-tables.sql:/docker-entrypoint-initdb.d/01-tables.sql
-      - ./sql/load-data.sql:/docker-entrypoint-initdb.d/02-load.sql
+      # - ./sql/load-data.sql:/docker-entrypoint-initdb.d/02-load.sql   # REMOVIDA
       - ./sql/views.sql:/docker-entrypoint-initdb.d/03-views.sql
-      - ./data-lake:/data # Disponibiliza CSVs para COPY se precisar
+      - ./data-lake:/data # ainda útil para outros fins, mas não usado pelo load-data.sql
     ports:
       - "5432:5432"
     networks:
@@ -25,9 +22,8 @@ services:
       timeout: 5s
       retries: 5
 
-  # 2. Aplicação Node.js
   app:
-    build: ./app
+    image: matheusalimuracaixa/movieflix-app:latest
     container_name: movieflix-app
     environment:
       - DATABASE_URL=postgresql://movieflix:123456@db:5432/movieflix
@@ -44,9 +40,8 @@ services:
       - movieflix-net
     restart: unless-stopped
 
-  # 3. Proxy Nginx
   proxy:
-    build: ./proxy
+    image: matheusalimuracaixa/movieflix-proxy:latest
     container_name: movieflix-proxy
     ports:
       - "80:80"
@@ -56,9 +51,8 @@ services:
       - movieflix-net
     restart: unless-stopped
 
-  # 4. ETL (roda uma vez e sai)
   etl:
-    build: ./etl
+    image: matheusalimuracaixa/movieflix-etl:latest
     container_name: movieflix-etl
     environment:
       - DATABASE_URL=postgresql://movieflix:123456@db:5432/movieflix
