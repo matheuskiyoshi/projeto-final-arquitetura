@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MovieFlix - Simples</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+        background: #f0f2f5;
+      }
+      h1 {
+        color: #175aa3;
+        text-align: center;
+      }
+      .card {
+        background: white;
+        padding: 20px;
+        margin: 20px 0;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+      input,
+      select,
+      button {
+        padding: 10px;
+        margin: 5px;
+        font-size: 16px;
+      }
+      button {
+        background: #175aa3;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      button:hover {
+        background: #5392cb;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 10px;
+      }
+      th,
+      td {
+        padding: 10px;
+        text-align: left;
+        border-bottom: 1px solid #ddd;
+      }
+      th {
+        background: #f8f9fa;
+      }
+      .busca-omdb {
+        background: #e3f2fd;
+        padding: 15px;
+        border-radius: 5px;
+        margin-bottom: 15px;
+      }
+      #mensagem {
+        padding: 10px;
+        margin: 10px 0;
+        border-radius: 4px;
+        display: none;
+      }
+      .sucesso {
+        background: #d4edda;
+        color: #155724;
+      }
+      .erro {
+        background: #f8d7da;
+        color: #721c24;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>🎬 MovieFlix Analytics</h1>
+
+    <div id="mensagem"></div>
+
+    <!-- Cadastro de Filme -->
+    <div class="card">
+      <h2>Cadastrar Filme</h2>
+
+      <div class="busca-omdb">
+        <strong>Buscar na OMDB:</strong><br />
+        <input type="text" id="busca-titulo" placeholder="Título em inglês" />
+        <button onclick="buscarOMDB()">🔍 Buscar</button>
+      </div>
+
+      <form id="form-filme" onsubmit="salvarFilme(event)">
+        <input type="text" id="titulo" placeholder="Título" required />
+        <input type="number" id="ano" placeholder="Ano" required />
+        <select id="genero" required>
+          <option value="">Gênero</option>
+          <option value="Ação">Ação</option>
+          <option value="Comédia">Comédia</option>
+          <option value="Drama">Drama</option>
+          <option value="Ficção">Ficção Científica</option>
+          <option value="Terror">Terror</option>
+          <option value="Romance">Romance</option>
+        </select>
+        <button type="submit">💾 Salvar Filme</button>
+      </form>
+    </div>
+
+    <!-- Cadastro de Avaliação -->
+    <div class="card">
+      <h2>Avaliar Filme</h2>
+      <form id="form-avaliacao" onsubmit="salvarAvaliacao(event)">
+        <select id="filme-select" required>
+          <option value="">Selecione o filme</option>
+        </select>
+        <input
+          type="number"
+          id="nota"
+          min="1"
+          max="10"
+          placeholder="Nota (1-10)"
+          required
+        />
+        <input type="text" id="nome" placeholder="Seu nome" required />
+        <button type="submit">⭐ Avaliar</button>
+      </form>
+    </div>
+
+    <!-- Listas -->
+    <div class="card">
+      <h2>Filmes Cadastrados</h2>
+      <table id="tabela-filmes">
+        <thead>
+          <tr>
+            <th>Título</th>
+            <th>Ano</th>
+            <th>Gênero</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <h2>Últimas Avaliações</h2>
+      <table id="tabela-avaliacoes">
+        <thead>
+          <tr>
+            <th>Filme</th>
+            <th>Nota</th>
+            <th>Avaliador</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <script>
+      const API = "";
+
+      async function buscarOMDB() {
+        const titulo = document.getElementById("busca-titulo").value;
+        if (!titulo) return;
+
+        try {
+          const res = await fetch(`${API}/api/omdb?t=${titulo}`);
+          const dados = await res.json();
+
+          if (dados.Response === "True") {
+            document.getElementById("titulo").value = dados.Title;
+            document.getElementById("ano").value = dados.Year;
+            mostrarMensagem("Dados encontrados!", "sucesso");
+          } else {
+            mostrarMensagem("Filme não encontrado", "erro");
+          }
+        } catch (e) {
+          mostrarMensagem(
+            "Erro na busca. Verifique a API Key no server.js",
+            "erro",
+          );
+        }
+      }
+
+      async function salvarFilme(e) {
+        e.preventDefault();
+        const dados = {
+          titulo: document.getElementById("titulo").value,
+          ano: document.getElementById("ano").value,
+          genero: document.getElementById("genero").value,
+        };
+
+        await fetch(`${API}/api/filmes`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(dados),
+        });
+
+        mostrarMensagem("Filme salvo!", "sucesso");
+        e.target.reset();
+        carregarDados();
+      }
+
+      async function salvarAvaliacao(e) {
+        e.preventDefault();
+        const dados = {
+          filme: document.getElementById("filme-select").value,
+          nota: document.getElementById("nota").value,
+          nome: document.getElementById("nome").value,
+        };
+
+        await fetch(`${API}/api/avaliacoes`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(dados),
+        });
+
+        mostrarMensagem("Avaliação salva!", "sucesso");
+        e.target.reset();
+        carregarDados();
+      }
+
+      async function carregarDados() {
+        // Carregar filmes
+        const filmes = await (await fetch(`${API}/api/filmes`)).json();
+        const tbodyF = document.querySelector("#tabela-filmes tbody");
+        tbodyF.innerHTML = filmes
+          .map(
+            (f) =>
+              `<tr><td>${f.title}</td><td>${f.year}</td><td>${f.genre}</td></tr>`,
+          )
+          .join("");
+
+        // Atualizar select de avaliação
+        const select = document.getElementById("filme-select");
+        select.innerHTML =
+          '<option value="">Selecione o filme</option>' +
+          filmes
+            .map((f) => `<option value="${f.title}">${f.title}</option>`)
+            .join("");
+
+        // Carregar avaliações
+        const avaliacoes = await (await fetch(`${API}/api/avaliacoes`)).json();
+        const tbodyA = document.querySelector("#tabela-avaliacoes tbody");
+        tbodyA.innerHTML = avaliacoes
+          .map(
+            (a) =>
+              `<tr><td>${a.filme}</td><td>${a.nota}/10</td><td>${a.nome}</td></tr>`,
+          )
+          .join("");
+      }
+
+      function mostrarMensagem(texto, tipo) {
+        const div = document.getElementById("mensagem");
+        div.textContent = texto;
+        div.className = tipo;
+        div.style.display = "block";
+        setTimeout(() => (div.style.display = "none"), 3000);
+      }
+
+      // Carregar ao iniciar
+      carregarDados();
+    </script>
+  </body>
+</html>

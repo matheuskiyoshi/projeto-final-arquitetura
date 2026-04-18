@@ -1,0 +1,81 @@
+version: "3.8"
+
+services:
+  # 1. Banco de dados PostgreSQL
+  db:
+    image: postgres:15-alpine
+    container_name: movieflix-db
+    environment:
+      POSTGRES_USER: movieflix
+      POSTGRES_PASSWORD: 123456
+      POSTGRES_DB: movieflix
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./sql/create-tables.sql:/docker-entrypoint-initdb.d/01-tables.sql
+      - ./sql/load-data.sql:/docker-entrypoint-initdb.d/02-load.sql
+      - ./sql/views.sql:/docker-entrypoint-initdb.d/03-views.sql
+      - ./data-lake:/data # Disponibiliza CSVs para COPY se precisar
+    ports:
+      - "5432:5432"
+    networks:
+      - movieflix-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U movieflix -d movieflix"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # 2. Aplicação Node.js
+  app:
+    build: ./app
+    container_name: movieflix-app
+    environment:
+      - DATABASE_URL=postgresql://movieflix:123456@db:5432/movieflix
+      - OMDB_API_KEY=${OMDB_API_KEY}
+      - PORT=10000
+    ports:
+      - "10000:10000"
+    depends_on:
+      db:
+        condition: service_healthy
+      etl:
+        condition: service_completed_successfully
+    networks:
+      - movieflix-net
+    restart: unless-stopped
+
+  # 3. Proxy Nginx
+  proxy:
+    build: ./proxy
+    container_name: movieflix-proxy
+    ports:
+      - "80:80"
+    depends_on:
+      - app
+    networks:
+      - movieflix-net
+    restart: unless-stopped
+
+  # 4. ETL (roda uma vez e sai)
+  etl:
+    build: ./etl
+    container_name: movieflix-etl
+    environment:
+      - DATABASE_URL=postgresql://movieflix:123456@db:5432/movieflix
+      - OMDB_API_KEY=${OMDB_API_KEY}
+    volumes:
+      - ./data-lake:/app/data-lake
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - movieflix-net
+    command: >
+      sh -c "python extract-pipeline.py && python load.py"
+
+networks:
+  movieflix-net:
+    driver: bridge
+
+volumes:
+  postgres_data:
